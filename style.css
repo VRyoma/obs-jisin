@@ -1,0 +1,161 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: transparent;
+  overflow: hidden;
+  font-family: "Noto Sans JP", "Yu Gothic", "Hiragino Sans", "Meiryo", sans-serif;
+  width: 1920px;
+  height: 1080px;
+  position: relative;
+}
+
+#ticker-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+}
+
+.ticker {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  animation: slideUp 0.4s ease-out;
+  margin-bottom: 2px;
+}
+
+.ticker.hiding {
+  animation: slideDown 0.4s ease-in forwards;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+.ticker-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 18px;
+  font-size: 22px;
+  font-weight: 900;
+  color: #fff;
+  white-space: nowrap;
+  min-width: 120px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  letter-spacing: 2px;
+}
+
+.ticker-content {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  padding: 6px 20px;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  gap: 24px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.ticker-content .time {
+  opacity: 0.9;
+  font-size: 18px;
+}
+
+.ticker-content .location {
+  font-size: 24px;
+}
+
+.ticker-content .magnitude {
+  font-size: 18px;
+  opacity: 0.9;
+}
+
+.ticker-content .depth {
+  font-size: 18px;
+  opacity: 0.9;
+}
+
+.ticker-content .tsunami-warn {
+  color: #ffe066;
+  font-weight: 900;
+  animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.intensity-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+  padding: 4px 12px;
+  font-size: 28px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6);
+  border-left: 3px solid rgba(255, 255, 255, 0.3);
+}
+
+/* 震度別カラー */
+.scale-1 .ticker-label { background: #61a5c2; }
+.scale-1 .ticker-content { background: rgba(97, 165, 194, 0.85); }
+.scale-1 .intensity-badge { background: #4a8fa8; }
+
+.scale-2 .ticker-label { background: #2d8a4e; }
+.scale-2 .ticker-content { background: rgba(45, 138, 78, 0.85); }
+.scale-2 .intensity-badge { background: #237a3e; }
+
+.scale-3 .ticker-label { background: #b5a300; }
+.scale-3 .ticker-content { background: rgba(181, 163, 0, 0.85); }
+.scale-3 .intensity-badge { background: #9e8e00; }
+
+.scale-4 .ticker-label { background: #e67700; }
+.scale-4 .ticker-content { background: rgba(230, 119, 0, 0.85); }
+.scale-4 .intensity-badge { background: #cc6900; }
+
+.scale-5lower .ticker-label { background: #d94f00; }
+.scale-5lower .ticker-content { background: rgba(217, 79, 0, 0.85); }
+.scale-5lower .intensity-badge { background: #c04500; }
+
+.scale-5upper .ticker-label { background: #c92a2a; }
+.scale-5upper .ticker-content { background: rgba(201, 42, 42, 0.85); }
+.scale-5upper .intensity-badge { background: #b02525; }
+
+.scale-6lower .ticker-label { background: #ae1e5a; }
+.scale-6lower .ticker-content { background: rgba(174, 30, 90, 0.85); }
+.scale-6lower .intensity-badge { background: #961a4e; }
+
+.scale-6upper .ticker-label { background: #862e9c; }
+.scale-6upper .ticker-content { background: rgba(134, 46, 156, 0.85); }
+.scale-6upper .intensity-badge { background: #742a87; }
+
+.scale-7 .ticker-label { background: #5f3dc4; }
+.scale-7 .ticker-content { background: rgba(95, 61, 196, 0.85); }
+.scale-7 .intensity-badge { background: #5235ab; }
