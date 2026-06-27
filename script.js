@@ -54,6 +54,8 @@ function createTickerElement(quake) {
   const scale = SCALE_MAP[eq.maxScale];
   if (!scale) return null;
 
+  const hypo = eq.hypocenter || {};
+
   const ticker = document.createElement("div");
   ticker.className = `ticker ${scale.class}`;
 
@@ -70,7 +72,7 @@ function createTickerElement(quake) {
 
   const location = document.createElement("span");
   location.className = "location";
-  location.textContent = eq.hypocenter.name || "震源調査中";
+  location.textContent = hypo.name || "震源調査中";
 
   const intensity = document.createElement("div");
   intensity.className = "intensity-badge";
@@ -79,17 +81,17 @@ function createTickerElement(quake) {
   content.appendChild(timeSpan);
   content.appendChild(location);
 
-  if (eq.hypocenter.magnitude > 0) {
+  if (hypo.magnitude > 0) {
     const mag = document.createElement("span");
     mag.className = "magnitude";
-    mag.textContent = `M${eq.hypocenter.magnitude.toFixed(1)}`;
+    mag.textContent = `M${hypo.magnitude.toFixed(1)}`;
     content.appendChild(mag);
   }
 
-  if (eq.hypocenter.depth >= 0) {
+  if (hypo.depth >= 0) {
     const depth = document.createElement("span");
     depth.className = "depth";
-    depth.textContent = `深さ${eq.hypocenter.depth === 0 ? "ごく浅い" : eq.hypocenter.depth + "km"}`;
+    depth.textContent = `深さ${hypo.depth === 0 ? "ごく浅い" : hypo.depth + "km"}`;
     content.appendChild(depth);
   }
 
@@ -130,15 +132,19 @@ async function processQueue() {
   if (isDisplaying || tickerQueue.length === 0) return;
   isDisplaying = true;
 
-  while (tickerQueue.length > 0) {
-    const quake = tickerQueue.shift();
-    await showTicker(quake);
-    if (tickerQueue.length > 0) {
-      await new Promise((r) => setTimeout(r, 500));
+  try {
+    while (tickerQueue.length > 0) {
+      const quake = tickerQueue.shift();
+      await showTicker(quake);
+      if (tickerQueue.length > 0) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
     }
+  } catch (e) {
+    console.error("テロップ表示エラー:", e);
+  } finally {
+    isDisplaying = false;
   }
-
-  isDisplaying = false;
 }
 
 async function fetchEarthquakes() {
@@ -158,7 +164,8 @@ async function fetchEarthquakes() {
       .sort((a, b) => parseApiTime(a.earthquake.time) - parseApiTime(b.earthquake.time));
 
     for (const quake of recent) {
-      const id = quake.id || quake.earthquake.time + quake.earthquake.hypocenter.name;
+      const hypo = quake.earthquake.hypocenter || {};
+      const id = quake.id || quake.earthquake.time + (hypo.name || "");
       if (!displayedIds.has(id)) {
         displayedIds.add(id);
         tickerQueue.push(quake);
