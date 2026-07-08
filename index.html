@@ -10,17 +10,14 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- NHKスタイル時計（左上） -->
-  <div id="clock-widget">
-    <div id="clock-date"></div>
-    <div id="clock-time"></div>
-  </div>
-
-  <!-- 天気予報ウィジェット（右上） -->
-  <div id="weather-widget">
-    <div id="weather-title">天気予報</div>
-    <div id="weather-list"></div>
-    <div id="weather-updated"></div>
+  <!-- 左上：時計 + 天気予報（横並び） -->
+  <div id="info-bar">
+    <div id="clock-widget">
+      <div id="clock-time"></div>
+    </div>
+    <div id="weather-widget">
+      <div id="weather-slide"></div>
+    </div>
   </div>
 
   <!-- 地震情報テロップ（画面下部） -->

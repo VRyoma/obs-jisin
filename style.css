@@ -14,118 +14,104 @@ body {
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   NHKスタイル時計
+   左上：時計 + 天気（横並び）
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
-#clock-widget {
+#info-bar {
   position: fixed;
-  top: 24px;
-  left: 24px;
-  background: rgba(0, 0, 0, 0.78);
-  color: #fff;
-  padding: 10px 22px 12px;
-  border-radius: 4px;
-  text-align: center;
-  min-width: 270px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  top: 20px;
+  left: 20px;
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
 }
 
-#clock-date {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  opacity: 0.85;
-  margin-bottom: 2px;
+/* 時計ボックス */
+#clock-widget {
+  background: rgba(0, 0, 0, 0.82);
+  color: #fff;
+  padding: 6px 22px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #clock-time {
-  font-size: 56px;
+  font-size: 72px;
   font-weight: 900;
-  letter-spacing: 3px;
+  letter-spacing: 2px;
   font-variant-numeric: tabular-nums;
-  line-height: 1.1;
+  line-height: 1;
 }
 
-/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   天気予報ウィジェット
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-
+/* 天気ボックス */
 #weather-widget {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-  background: rgba(0, 0, 0, 0.78);
+  background: rgba(0, 0, 0, 0.82);
   color: #fff;
-  padding: 12px 18px 10px;
-  border-radius: 4px;
-  min-width: 310px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-
-#weather-title {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  opacity: 0.55;
-  margin-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-  padding-bottom: 6px;
-}
-
-.weather-city {
+  padding: 0 24px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 0;
+  min-width: 420px;
+  overflow: hidden;
 }
 
-.city-icon {
-  font-size: 17px;
-  width: 22px;
-  text-align: center;
+#weather-slide {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+
+#weather-slide.in {
+  animation: wSlide 0.35s ease-out;
+}
+
+@keyframes wSlide {
+  from { opacity: 0; transform: translateX(22px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.w-label {
+  font-size: 18px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  letter-spacing: 1px;
+}
+
+.w-label.today    { color: #7ec8ff; border: 1px solid rgba(126,200,255,0.5); }
+.w-label.tomorrow { color: #ffb347; border: 1px solid rgba(255,179,71,0.5); }
+
+.w-city {
+  font-size: 28px;
+  font-weight: 900;
+  flex-shrink: 0;
+  min-width: 56px;
+}
+
+.w-icon {
+  font-size: 32px;
   flex-shrink: 0;
 }
 
-.city-name {
-  width: 52px;
-  font-size: 15px;
+.w-cond {
+  font-size: 22px;
+  font-weight: 700;
+  flex: 1;
+}
+
+.w-temp {
+  font-size: 22px;
   font-weight: 700;
   flex-shrink: 0;
-}
-
-.city-temp {
-  font-size: 18px;
-  font-weight: 900;
-  width: 42px;
-  text-align: right;
   font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
+  white-space: nowrap;
 }
 
-.city-range {
-  font-size: 12px;
-  opacity: 0.65;
-  flex: 1;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.city-pop {
-  font-size: 12px;
-  color: #7ec8ff;
-  width: 46px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-#weather-updated {
-  font-size: 10px;
-  opacity: 0.35;
-  text-align: right;
-  margin-top: 6px;
-  letter-spacing: 0.5px;
-}
+.w-temp .hi { color: #ff8080; }
+.w-temp .lo { color: #88ccff; }
+.w-temp .sep { opacity: 0.5; margin: 0 2px; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    地震テロップ
