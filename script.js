@@ -3,24 +3,24 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const SCALE_MAP = {
-  10: { text: "震度1",  class: "scale-1" },
-  20: { text: "震度2",  class: "scale-2" },
-  30: { text: "震度3",  class: "scale-3" },
-  40: { text: "震度4",  class: "scale-4" },
+  10: { text: "震度1",   class: "scale-1" },
+  20: { text: "震度2",   class: "scale-2" },
+  30: { text: "震度3",   class: "scale-3" },
+  40: { text: "震度4",   class: "scale-4" },
   45: { text: "震度5弱", class: "scale-5lower" },
   50: { text: "震度5強", class: "scale-5upper" },
   55: { text: "震度6弱", class: "scale-6lower" },
   60: { text: "震度6強", class: "scale-6upper" },
-  70: { text: "震度7",  class: "scale-7" },
+  70: { text: "震度7",   class: "scale-7" },
 };
 
 const TSUNAMI_MAP = {
-  None:        null,
-  Unknown:     null,
-  Checking:    "津波の有無を調査中",
+  None:         null,
+  Unknown:      null,
+  Checking:     "津波の有無を調査中",
   NonEffective: "若干の海面変動（被害の心配なし）",
-  Watch:       "⚠ 津波注意報 発令中",
-  Warning:     "🔴 津波警報 発令中",
+  Watch:        "⚠ 津波注意報 発令中",
+  Warning:      "🔴 津波警報 発令中",
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -215,23 +215,14 @@ function connectWebSocket() {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 時計
+// 時計（HH:MM のみ、NHKスタイル）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-const DAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
 function updateClock() {
   const now = new Date();
-  const y   = now.getFullYear();
-  const m   = String(now.getMonth() + 1).padStart(2, "0");
-  const d   = String(now.getDate()).padStart(2, "0");
-  const dow = DAYS[now.getDay()];
   const hh  = String(now.getHours()).padStart(2, "0");
   const mm  = String(now.getMinutes()).padStart(2, "0");
-  const ss  = String(now.getSeconds()).padStart(2, "0");
-
-  document.getElementById("clock-date").textContent = `${y}年${m}月${d}日（${dow}）`;
-  document.getElementById("clock-time").textContent = `${hh}:${mm}:${ss}`;
+  document.getElementById("clock-time").textContent = `${hh}:${mm}`;
 }
 
 function initClock() {
@@ -242,64 +233,93 @@ function initClock() {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 天気予報（Open-Meteo）
+// 天気予報（切り替え表示）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let weatherData  = [];
+let weatherIndex = 0;
+let weatherTimer = null;
+
+// 18時以降は翌日の天気を表示
+function shouldShowTomorrow() {
+  return new Date().getHours() >= 18;
+}
 
 async function fetchCityWeather(city) {
   const url =
     `https://api.open-meteo.com/v1/forecast` +
     `?latitude=${city.lat}&longitude=${city.lon}` +
     `&current=temperature_2m,weather_code` +
-    `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
-    `&timezone=Asia%2FTokyo&forecast_days=1`;
+    `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
+    `&timezone=Asia%2FTokyo&forecast_days=2`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
+  const d = await res.json();
   return {
     name: city.name,
-    temp: Math.round(data.current.temperature_2m),
-    code: data.current.weather_code,
-    high: Math.round(data.daily.temperature_2m_max[0]),
-    low:  Math.round(data.daily.temperature_2m_min[0]),
-    pop:  data.daily.precipitation_probability_max[0],
+    today: {
+      code: d.daily.weather_code[0],
+      high: Math.round(d.daily.temperature_2m_max[0]),
+      low:  Math.round(d.daily.temperature_2m_min[0]),
+    },
+    tomorrow: {
+      code: d.daily.weather_code[1],
+      high: Math.round(d.daily.temperature_2m_max[1]),
+      low:  Math.round(d.daily.temperature_2m_min[1]),
+    },
   };
 }
 
-function renderWeather(results) {
-  const list = document.getElementById("weather-list");
-  list.innerHTML = "";
+function renderWeatherSlide() {
+  if (weatherData.length === 0) return;
 
-  for (const city of results) {
-    const wmo = WMO_CODES[city.code] ?? { icon: "❓", text: "不明" };
-    const row = document.createElement("div");
-    row.className = "weather-city";
-    row.innerHTML =
-      `<span class="city-icon">${wmo.icon}</span>` +
-      `<span class="city-name">${city.name}</span>` +
-      `<span class="city-temp">${city.temp}°</span>` +
-      `<span class="city-range">${city.high}°/${city.low}°</span>` +
-      `<span class="city-pop">${city.pop != null ? `☔${city.pop}%` : ""}</span>`;
-    list.appendChild(row);
-  }
+  const city       = weatherData[weatherIndex];
+  const isTomorrow = shouldShowTomorrow();
+  const day        = isTomorrow ? city.tomorrow : city.today;
+  const wmo        = WMO_CODES[day.code] ?? { icon: "❓", text: "不明" };
+  const labelText  = isTomorrow ? "明日" : "今日";
+  const labelClass = isTomorrow ? "tomorrow" : "today";
 
-  const hh = String(new Date().getHours()).padStart(2, "0");
-  const mm = String(new Date().getMinutes()).padStart(2, "0");
-  document.getElementById("weather-updated").textContent = `更新 ${hh}:${mm}`;
+  const slide = document.getElementById("weather-slide");
+  slide.classList.remove("in");
+  void slide.offsetWidth; // reflow でアニメーションをリセット
+  slide.classList.add("in");
+
+  slide.innerHTML =
+    `<span class="w-label ${labelClass}">${labelText}</span>` +
+    `<span class="w-city">${city.name}</span>` +
+    `<span class="w-icon">${wmo.icon}</span>` +
+    `<span class="w-cond">${wmo.text}</span>` +
+    `<span class="w-temp">` +
+      `<span class="hi">${day.high}°</span>` +
+      `<span class="sep">/</span>` +
+      `<span class="lo">${day.low}°</span>` +
+    `</span>`;
+
+  weatherIndex = (weatherIndex + 1) % weatherData.length;
+}
+
+function startWeatherCycle() {
+  renderWeatherSlide();
+  weatherTimer = setInterval(renderWeatherSlide, CONFIG.weather.cityInterval);
 }
 
 async function fetchAllWeather() {
   const settled = await Promise.allSettled(CONFIG.weather.cities.map(fetchCityWeather));
-  const results = settled
-    .filter((r) => r.status === "fulfilled")
-    .map((r) => r.value);
-  if (results.length > 0) renderWeather(results);
+  const results = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
+  if (results.length > 0) weatherData = results;
 }
 
-function initWeather() {
+async function initWeather() {
   const widget = document.getElementById("weather-widget");
   if (!CONFIG.weather.enabled) { widget.style.display = "none"; return; }
-  fetchAllWeather();
-  setInterval(fetchAllWeather, CONFIG.weather.updateInterval);
+
+  await fetchAllWeather();
+  startWeatherCycle();
+
+  setInterval(async () => {
+    await fetchAllWeather();
+  }, CONFIG.weather.updateInterval);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
