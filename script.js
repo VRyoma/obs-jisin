@@ -1,4 +1,122 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 天気SVGアイコン
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function _svg(body) {
+  return (
+    `<svg width="44" height="44" viewBox="0 0 48 48" fill="none" ` +
+    `xmlns="http://www.w3.org/2000/svg" ` +
+    `style="filter:drop-shadow(0 1px 4px rgba(0,0,0,0.7))">${body}</svg>`
+  );
+}
+
+// 雲（楕円3つ＋矩形で構成）
+function _cloud(col = "#ffffff", dx = 0, dy = 0) {
+  const x = dx, y = dy;
+  return (
+    `<ellipse cx="${18 + x}" cy="${31 + y}" rx="8.5" ry="6.5" fill="${col}"/>` +
+    `<ellipse cx="${27 + x}" cy="${25 + y}" rx="10.5" ry="8.5" fill="${col}"/>` +
+    `<ellipse cx="${36 + x}" cy="${30 + y}" rx="7.5"  ry="6"   fill="${col}"/>` +
+    `<rect x="${18 + x}" y="${29 + y}" width="18" height="8" fill="${col}"/>`
+  );
+}
+
+// 太陽（円＋8本の光線）
+function _sun(cx, cy, r, r1, r2) {
+  let rays = "";
+  for (let i = 0; i < 8; i++) {
+    const a  = (i / 8) * Math.PI * 2;
+    const x1 = (cx + Math.cos(a) * r1).toFixed(1);
+    const y1 = (cy + Math.sin(a) * r1).toFixed(1);
+    const x2 = (cx + Math.cos(a) * r2).toFixed(1);
+    const y2 = (cy + Math.sin(a) * r2).toFixed(1);
+    rays += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#FFE44D" stroke-width="2.5" stroke-linecap="round"/>`;
+  }
+  return rays + `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#FFE44D"/>`;
+}
+
+// 雨粒（斜め線）
+function _drop(x, y, col = "#7ec8ff") {
+  return `<line x1="${x}" y1="${y}" x2="${x - 1.5}" y2="${y + 5.5}" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/>`;
+}
+
+// 雪の結晶（3方向の線）
+function _flake(cx, cy) {
+  let s = "";
+  for (let i = 0; i < 3; i++) {
+    const a  = (i / 3) * Math.PI;
+    const r  = 4;
+    const x1 = (cx - Math.cos(a) * r).toFixed(1);
+    const y1 = (cy - Math.sin(a) * r).toFixed(1);
+    const x2 = (cx + Math.cos(a) * r).toFixed(1);
+    const y2 = (cy + Math.sin(a) * r).toFixed(1);
+    s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#aacfff" stroke-width="2" stroke-linecap="round"/>`;
+  }
+  return s;
+}
+
+// 霧（横線）
+function _fogLines() {
+  return (
+    `<line x1="6"  y1="14" x2="42" y2="14" stroke="#8899aa" stroke-width="3"   stroke-linecap="round"/>` +
+    `<line x1="4"  y1="22" x2="44" y2="22" stroke="#8899aa" stroke-width="3.5" stroke-linecap="round"/>` +
+    `<line x1="6"  y1="30" x2="42" y2="30" stroke="#8899aa" stroke-width="3"   stroke-linecap="round"/>` +
+    `<line x1="10" y1="38" x2="38" y2="38" stroke="#8899aa" stroke-width="2.5" stroke-linecap="round"/>`
+  );
+}
+
+// 稲妻
+function _lightning() {
+  return `<path d="M26,36 L22,36 L24,42 L20,42 L28,48 L25,42 L30,42Z" fill="#FFE44D"/>`;
+}
+
+// ── アイコン定義 ──────────────────────────────────
+const WEATHER_ICONS = {
+  sunny:       _svg(_sun(24, 24, 10, 14, 22)),
+  mostlySunny: _svg(_sun(31, 18, 8, 11, 17) + _cloud("#e8f2fa", 0, 2)),
+  partlyCloudy:_svg(_sun(33, 16, 7, 10, 15) + _cloud()),
+  overcast:    _svg(_cloud("#b8c8d8", 0, -2) + _cloud()),
+  fog:         _svg(_fogLines()),
+  drizzle:     _svg(_cloud("#ccdded") + _drop(20, 40) + _drop(28, 43) + _drop(36, 40)),
+  rain:        _svg(_cloud("#c0d4e8") + _drop(17, 39) + _drop(23, 42) + _drop(30, 39) + _drop(37, 42)),
+  heavyRain:   _svg(_cloud("#b0c4dc") + _drop(14, 38) + _drop(20, 41) + _drop(26, 38) + _drop(32, 41) + _drop(38, 38)),
+  snow:        _svg(_cloud("#cce0f4") + _flake(18, 42) + _flake(27, 45) + _flake(36, 42)),
+  sleet:       _svg(_cloud("#c0d4e8") + _drop(17, 39) + _flake(27, 43) + _drop(37, 39)),
+  thunder:     _svg(_cloud("#7888a0") + _lightning()),
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// WMO天気コード（Open-Meteo）→ 日本語テキスト + SVGアイコン
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const WMO_CODES = {
+  0:  { text: "快晴",           icon: WEATHER_ICONS.sunny },
+  1:  { text: "晴れ",           icon: WEATHER_ICONS.mostlySunny },
+  2:  { text: "晴れ時々くもり", icon: WEATHER_ICONS.partlyCloudy },
+  3:  { text: "くもり",         icon: WEATHER_ICONS.overcast },
+  45: { text: "霧",             icon: WEATHER_ICONS.fog },
+  48: { text: "着氷霧",         icon: WEATHER_ICONS.fog },
+  51: { text: "霧雨",           icon: WEATHER_ICONS.drizzle },
+  53: { text: "霧雨",           icon: WEATHER_ICONS.drizzle },
+  55: { text: "強い霧雨",       icon: WEATHER_ICONS.drizzle },
+  61: { text: "小雨",           icon: WEATHER_ICONS.rain },
+  63: { text: "雨",             icon: WEATHER_ICONS.rain },
+  65: { text: "大雨",           icon: WEATHER_ICONS.heavyRain },
+  71: { text: "小雪",           icon: WEATHER_ICONS.snow },
+  73: { text: "雪",             icon: WEATHER_ICONS.snow },
+  75: { text: "大雪",           icon: WEATHER_ICONS.snow },
+  77: { text: "霰",             icon: WEATHER_ICONS.sleet },
+  80: { text: "にわか雨",       icon: WEATHER_ICONS.drizzle },
+  81: { text: "雨",             icon: WEATHER_ICONS.rain },
+  82: { text: "強いにわか雨",   icon: WEATHER_ICONS.heavyRain },
+  85: { text: "にわか雪",       icon: WEATHER_ICONS.snow },
+  86: { text: "強いにわか雪",   icon: WEATHER_ICONS.snow },
+  95: { text: "雷雨",           icon: WEATHER_ICONS.thunder },
+  96: { text: "雷雨（雹）",     icon: WEATHER_ICONS.thunder },
+  99: { text: "激しい雷雨",     icon: WEATHER_ICONS.thunder },
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 震度マッピング
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -21,37 +139,6 @@ const TSUNAMI_MAP = {
   NonEffective: "若干の海面変動（被害の心配なし）",
   Watch:        "⚠ 津波注意報 発令中",
   Warning:      "🔴 津波警報 発令中",
-};
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// WMO天気コード（Open-Meteo）→ 日本語
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-const WMO_CODES = {
-  0:  { text: "快晴",           icon: "☀️" },
-  1:  { text: "晴れ",           icon: "🌤" },
-  2:  { text: "晴れ時々くもり", icon: "⛅" },
-  3:  { text: "くもり",         icon: "☁️" },
-  45: { text: "霧",             icon: "🌫" },
-  48: { text: "着氷霧",         icon: "🌫" },
-  51: { text: "霧雨",           icon: "🌦" },
-  53: { text: "霧雨",           icon: "🌦" },
-  55: { text: "強い霧雨",       icon: "🌦" },
-  61: { text: "小雨",           icon: "🌧" },
-  63: { text: "雨",             icon: "🌧" },
-  65: { text: "大雨",           icon: "🌧" },
-  71: { text: "小雪",           icon: "❄️" },
-  73: { text: "雪",             icon: "❄️" },
-  75: { text: "大雪",           icon: "❄️" },
-  77: { text: "霰",             icon: "🌨" },
-  80: { text: "にわか雨",       icon: "🌦" },
-  81: { text: "雨",             icon: "🌧" },
-  82: { text: "強いにわか雨",   icon: "🌧" },
-  85: { text: "にわか雪",       icon: "🌨" },
-  86: { text: "強いにわか雪",   icon: "🌨" },
-  95: { text: "雷雨",           icon: "⛈️" },
-  96: { text: "雷雨（雹）",     icon: "⛈️" },
-  99: { text: "激しい雷雨",     icon: "⛈️" },
 };
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -215,7 +302,7 @@ function connectWebSocket() {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 時計（HH:MM のみ、NHKスタイル）
+// 時計（HH:MM のみ・縁取り）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 function updateClock() {
@@ -238,9 +325,7 @@ function initClock() {
 
 let weatherData  = [];
 let weatherIndex = 0;
-let weatherTimer = null;
 
-// 18時以降は翌日の天気を表示
 function shouldShowTomorrow() {
   return new Date().getHours() >= 18;
 }
@@ -276,13 +361,13 @@ function renderWeatherSlide() {
   const city       = weatherData[weatherIndex];
   const isTomorrow = shouldShowTomorrow();
   const day        = isTomorrow ? city.tomorrow : city.today;
-  const wmo        = WMO_CODES[day.code] ?? { icon: "❓", text: "不明" };
+  const wmo        = WMO_CODES[day.code] ?? { icon: WEATHER_ICONS.overcast, text: "不明" };
   const labelText  = isTomorrow ? "明日" : "今日";
   const labelClass = isTomorrow ? "tomorrow" : "today";
 
   const slide = document.getElementById("weather-slide");
   slide.classList.remove("in");
-  void slide.offsetWidth; // reflow でアニメーションをリセット
+  void slide.offsetWidth;
   slide.classList.add("in");
 
   slide.innerHTML =
@@ -299,11 +384,6 @@ function renderWeatherSlide() {
   weatherIndex = (weatherIndex + 1) % weatherData.length;
 }
 
-function startWeatherCycle() {
-  renderWeatherSlide();
-  weatherTimer = setInterval(renderWeatherSlide, CONFIG.weather.cityInterval);
-}
-
 async function fetchAllWeather() {
   const settled = await Promise.allSettled(CONFIG.weather.cities.map(fetchCityWeather));
   const results = settled.filter((r) => r.status === "fulfilled").map((r) => r.value);
@@ -315,11 +395,9 @@ async function initWeather() {
   if (!CONFIG.weather.enabled) { widget.style.display = "none"; return; }
 
   await fetchAllWeather();
-  startWeatherCycle();
-
-  setInterval(async () => {
-    await fetchAllWeather();
-  }, CONFIG.weather.updateInterval);
+  renderWeatherSlide();
+  setInterval(renderWeatherSlide, CONFIG.weather.cityInterval);
+  setInterval(fetchAllWeather, CONFIG.weather.updateInterval);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
