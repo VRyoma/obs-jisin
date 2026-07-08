@@ -1,56 +1,86 @@
-const API_URL = "https://api.p2pquake.net/v2/history?codes=551&limit=10";
-const POLL_INTERVAL = 30000;
-const MAX_AGE_HOURS = 24;
-const DISPLAY_DURATION = 15000;
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 震度マッピング
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const SCALE_MAP = {
-  10: { text: "震度1", class: "scale-1" },
-  20: { text: "震度2", class: "scale-2" },
-  30: { text: "震度3", class: "scale-3" },
-  40: { text: "震度4", class: "scale-4" },
+  10: { text: "震度1",  class: "scale-1" },
+  20: { text: "震度2",  class: "scale-2" },
+  30: { text: "震度3",  class: "scale-3" },
+  40: { text: "震度4",  class: "scale-4" },
   45: { text: "震度5弱", class: "scale-5lower" },
   50: { text: "震度5強", class: "scale-5upper" },
   55: { text: "震度6弱", class: "scale-6lower" },
   60: { text: "震度6強", class: "scale-6upper" },
-  70: { text: "震度7", class: "scale-7" },
+  70: { text: "震度7",  class: "scale-7" },
 };
 
 const TSUNAMI_MAP = {
-  None: null,
-  Unknown: null,
-  Checking: "津波の有無を調査中",
+  None:        null,
+  Unknown:     null,
+  Checking:    "津波の有無を調査中",
   NonEffective: "若干の海面変動（被害の心配なし）",
-  Watch: "⚠ 津波注意報 発令中",
-  Warning: "🔴 津波警報 発令中",
+  Watch:       "⚠ 津波注意報 発令中",
+  Warning:     "🔴 津波警報 発令中",
 };
 
-let displayedIds = new Set();
-let tickerQueue = [];
-let isDisplaying = false;
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// WMO天気コード（Open-Meteo）→ 日本語
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const WMO_CODES = {
+  0:  { text: "快晴",           icon: "☀️" },
+  1:  { text: "晴れ",           icon: "🌤" },
+  2:  { text: "晴れ時々くもり", icon: "⛅" },
+  3:  { text: "くもり",         icon: "☁️" },
+  45: { text: "霧",             icon: "🌫" },
+  48: { text: "着氷霧",         icon: "🌫" },
+  51: { text: "霧雨",           icon: "🌦" },
+  53: { text: "霧雨",           icon: "🌦" },
+  55: { text: "強い霧雨",       icon: "🌦" },
+  61: { text: "小雨",           icon: "🌧" },
+  63: { text: "雨",             icon: "🌧" },
+  65: { text: "大雨",           icon: "🌧" },
+  71: { text: "小雪",           icon: "❄️" },
+  73: { text: "雪",             icon: "❄️" },
+  75: { text: "大雪",           icon: "❄️" },
+  77: { text: "霰",             icon: "🌨" },
+  80: { text: "にわか雨",       icon: "🌦" },
+  81: { text: "雨",             icon: "🌧" },
+  82: { text: "強いにわか雨",   icon: "🌧" },
+  85: { text: "にわか雪",       icon: "🌨" },
+  86: { text: "強いにわか雪",   icon: "🌨" },
+  95: { text: "雷雨",           icon: "⛈️" },
+  96: { text: "雷雨（雹）",     icon: "⛈️" },
+  99: { text: "激しい雷雨",     icon: "⛈️" },
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 地震テロップ
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const displayedIds = new Set();
+const tickerQueue  = [];
+let isDisplaying   = false;
 
 function parseApiTime(timeStr) {
-  const normalized = timeStr.replace(/\//g, "-");
-  return new Date(normalized);
+  return new Date(timeStr.replace(/\//g, "-"));
 }
 
 function formatTime(timeStr) {
-  const d = parseApiTime(timeStr);
-  const month = d.getMonth() + 1;
-  const day = d.getDate();
-  const hours = String(d.getHours()).padStart(2, "0");
-  const minutes = String(d.getMinutes()).padStart(2, "0");
-  return `${month}月${day}日 ${hours}:${minutes}`;
+  const d  = parseApiTime(timeStr);
+  const m  = d.getMonth() + 1;
+  const dd = d.getDate();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${m}月${dd}日 ${hh}:${mm}`;
 }
 
-function isRecent(timeStr) {
-  const quakeTime = parseApiTime(timeStr);
-  const now = new Date();
-  const diffMs = now - quakeTime;
-  return diffMs < MAX_AGE_HOURS * 60 * 60 * 1000;
+function isWithinHours(timeStr, hours) {
+  return Date.now() - parseApiTime(timeStr) < hours * 3_600_000;
 }
 
 function createTickerElement(quake) {
-  const eq = quake.earthquake;
+  const eq    = quake.earthquake;
   const scale = SCALE_MAP[eq.maxScale];
   if (!scale) return null;
 
@@ -60,37 +90,37 @@ function createTickerElement(quake) {
   ticker.className = `ticker ${scale.class}`;
 
   const label = document.createElement("div");
-  label.className = "ticker-label";
+  label.className   = "ticker-label";
   label.textContent = "地震情報";
 
   const content = document.createElement("div");
   content.className = "ticker-content";
 
   const timeSpan = document.createElement("span");
-  timeSpan.className = "time";
+  timeSpan.className   = "time";
   timeSpan.textContent = formatTime(eq.time);
 
   const location = document.createElement("span");
-  location.className = "location";
+  location.className   = "location";
   location.textContent = hypo.name || "震源調査中";
 
-  const intensity = document.createElement("div");
-  intensity.className = "intensity-badge";
-  intensity.textContent = scale.text;
+  const badge = document.createElement("div");
+  badge.className   = "intensity-badge";
+  badge.textContent = scale.text;
 
   content.appendChild(timeSpan);
   content.appendChild(location);
 
   if (hypo.magnitude > 0) {
     const mag = document.createElement("span");
-    mag.className = "magnitude";
+    mag.className   = "magnitude";
     mag.textContent = `M${hypo.magnitude.toFixed(1)}`;
     content.appendChild(mag);
   }
 
   if (hypo.depth >= 0) {
     const depth = document.createElement("span");
-    depth.className = "depth";
+    depth.className   = "depth";
     depth.textContent = `深さ${hypo.depth === 0 ? "ごく浅い" : hypo.depth + "km"}`;
     content.appendChild(depth);
   }
@@ -98,15 +128,14 @@ function createTickerElement(quake) {
   const tsunamiText = TSUNAMI_MAP[eq.domesticTsunami];
   if (tsunamiText) {
     const tsunami = document.createElement("span");
-    tsunami.className = "tsunami-warn";
+    tsunami.className   = "tsunami-warn";
     tsunami.textContent = tsunamiText;
     content.appendChild(tsunami);
   }
 
   ticker.appendChild(label);
   ticker.appendChild(content);
-  ticker.appendChild(intensity);
-
+  ticker.appendChild(badge);
   return ticker;
 }
 
@@ -116,29 +145,22 @@ function showTicker(quake) {
   if (!el) return Promise.resolve();
 
   container.appendChild(el);
-
   return new Promise((resolve) => {
     setTimeout(() => {
       el.classList.add("hiding");
-      el.addEventListener("animationend", () => {
-        el.remove();
-        resolve();
-      });
-    }, DISPLAY_DURATION);
+      el.addEventListener("animationend", () => { el.remove(); resolve(); });
+    }, CONFIG.earthquake.displayDuration);
   });
 }
 
 async function processQueue() {
   if (isDisplaying || tickerQueue.length === 0) return;
   isDisplaying = true;
-
   try {
     while (tickerQueue.length > 0) {
       const quake = tickerQueue.shift();
       await showTicker(quake);
-      if (tickerQueue.length > 0) {
-        await new Promise((r) => setTimeout(r, 500));
-      }
+      if (tickerQueue.length > 0) await new Promise((r) => setTimeout(r, 500));
     }
   } catch (e) {
     console.error("テロップ表示エラー:", e);
@@ -147,36 +169,145 @@ async function processQueue() {
   }
 }
 
-async function fetchEarthquakes() {
-  try {
-    const res = await fetch(API_URL);
-    if (!res.ok) return;
-
-    const data = await res.json();
-
-    const recent = data
-      .filter((item) => {
-        if (item.code !== 551) return false;
-        if (!item.earthquake) return false;
-        if (!isRecent(item.earthquake.time)) return false;
-        return true;
-      })
-      .sort((a, b) => parseApiTime(a.earthquake.time) - parseApiTime(b.earthquake.time));
-
-    for (const quake of recent) {
-      const hypo = quake.earthquake.hypocenter || {};
-      const id = quake.id || quake.earthquake.time + (hypo.name || "");
-      if (!displayedIds.has(id)) {
-        displayedIds.add(id);
-        tickerQueue.push(quake);
-      }
-    }
-
-    processQueue();
-  } catch (e) {
-    console.error("地震情報の取得に失敗:", e);
-  }
+function handleEarthquake(data) {
+  if (!data.earthquake) return;
+  const hypo = data.earthquake.hypocenter || {};
+  const id   = data.id || (data.earthquake.time + (hypo.name || ""));
+  if (displayedIds.has(id)) return;
+  displayedIds.add(id);
+  tickerQueue.push(data);
+  processQueue();
 }
 
-fetchEarthquakes();
-setInterval(fetchEarthquakes, POLL_INTERVAL);
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// WebSocket（P2P地震情報リアルタイム）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+let ws               = null;
+let wsReconnectDelay = 1000;
+
+function connectWebSocket() {
+  ws = new WebSocket("wss://api.p2pquake.net/v2/ws");
+
+  ws.onopen = () => {
+    console.log("WebSocket接続完了");
+    wsReconnectDelay = 1000;
+  };
+
+  ws.onmessage = (event) => {
+    let data;
+    try { data = JSON.parse(event.data); } catch { return; }
+    if (data.code !== 551) return;
+
+    const hours = CONFIG.earthquake.initialHistoryHours;
+    if (hours > 0 && data.earthquake && !isWithinHours(data.earthquake.time, hours)) return;
+
+    handleEarthquake(data);
+  };
+
+  ws.onclose = () => {
+    console.log(`WebSocket切断。${wsReconnectDelay / 1000}秒後に再接続...`);
+    setTimeout(connectWebSocket, wsReconnectDelay);
+    wsReconnectDelay = Math.min(wsReconnectDelay * 2, 30_000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 時計
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const DAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+function updateClock() {
+  const now = new Date();
+  const y   = now.getFullYear();
+  const m   = String(now.getMonth() + 1).padStart(2, "0");
+  const d   = String(now.getDate()).padStart(2, "0");
+  const dow = DAYS[now.getDay()];
+  const hh  = String(now.getHours()).padStart(2, "0");
+  const mm  = String(now.getMinutes()).padStart(2, "0");
+  const ss  = String(now.getSeconds()).padStart(2, "0");
+
+  document.getElementById("clock-date").textContent = `${y}年${m}月${d}日（${dow}）`;
+  document.getElementById("clock-time").textContent = `${hh}:${mm}:${ss}`;
+}
+
+function initClock() {
+  const widget = document.getElementById("clock-widget");
+  if (!CONFIG.clock.enabled) { widget.style.display = "none"; return; }
+  updateClock();
+  setInterval(updateClock, 1000);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 天気予報（Open-Meteo）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+async function fetchCityWeather(city) {
+  const url =
+    `https://api.open-meteo.com/v1/forecast` +
+    `?latitude=${city.lat}&longitude=${city.lon}` +
+    `&current=temperature_2m,weather_code` +
+    `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
+    `&timezone=Asia%2FTokyo&forecast_days=1`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  return {
+    name: city.name,
+    temp: Math.round(data.current.temperature_2m),
+    code: data.current.weather_code,
+    high: Math.round(data.daily.temperature_2m_max[0]),
+    low:  Math.round(data.daily.temperature_2m_min[0]),
+    pop:  data.daily.precipitation_probability_max[0],
+  };
+}
+
+function renderWeather(results) {
+  const list = document.getElementById("weather-list");
+  list.innerHTML = "";
+
+  for (const city of results) {
+    const wmo = WMO_CODES[city.code] ?? { icon: "❓", text: "不明" };
+    const row = document.createElement("div");
+    row.className = "weather-city";
+    row.innerHTML =
+      `<span class="city-icon">${wmo.icon}</span>` +
+      `<span class="city-name">${city.name}</span>` +
+      `<span class="city-temp">${city.temp}°</span>` +
+      `<span class="city-range">${city.high}°/${city.low}°</span>` +
+      `<span class="city-pop">${city.pop != null ? `☔${city.pop}%` : ""}</span>`;
+    list.appendChild(row);
+  }
+
+  const hh = String(new Date().getHours()).padStart(2, "0");
+  const mm = String(new Date().getMinutes()).padStart(2, "0");
+  document.getElementById("weather-updated").textContent = `更新 ${hh}:${mm}`;
+}
+
+async function fetchAllWeather() {
+  const settled = await Promise.allSettled(CONFIG.weather.cities.map(fetchCityWeather));
+  const results = settled
+    .filter((r) => r.status === "fulfilled")
+    .map((r) => r.value);
+  if (results.length > 0) renderWeather(results);
+}
+
+function initWeather() {
+  const widget = document.getElementById("weather-widget");
+  if (!CONFIG.weather.enabled) { widget.style.display = "none"; return; }
+  fetchAllWeather();
+  setInterval(fetchAllWeather, CONFIG.weather.updateInterval);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 初期化
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+document.addEventListener("DOMContentLoaded", () => {
+  initClock();
+  initWeather();
+  connectWebSocket();
+});
